@@ -1,4 +1,4 @@
-package io.github.thanosfisherman.fractaloid
+package fractaloid
 
 import jm.JMC
 import jm.music.data.Note
