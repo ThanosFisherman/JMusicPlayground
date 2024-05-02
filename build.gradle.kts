@@ -1,7 +1,8 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.ir.backend.js.compile
 
 plugins {
-    kotlin("jvm") version "1.3.31"
+    kotlin("jvm") version "1.9.23"
     java
 }
 
@@ -14,33 +15,49 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    compile(files("libs/jMusic1.6.5.jar"))
+    implementation(files("libs/jMusic1.6.5.jar"))
+}
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
 }
 
-configure<JavaPluginConvention> {
-    sourceCompatibility = JavaVersion.VERSION_1_8
+kotlin {
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
 }
 
-tasks.withType<KotlinCompile> {
-    kotlinOptions.jvmTarget = "1.8"
-}
+tasks.getByName<Jar>("jar") {
+    dependsOn(configurations.getByName("runtimeClasspath"))
+    // sets the name of the .jar file this produces to the name of the game or app.
+    archiveFileName.set(project.name)
+    val destDir = file(project.layout.buildDirectory.asFile.get().absolutePath + File.separator + "lib")
+    // using 'lib' instead of the default 'libs' appears to be needed by jpackageimage.
+    destinationDirectory.set(destDir)
+    // the duplicatesStrategy matters starting in Gradle 7.0; this setting works.
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    println(configurations)
 
-// https://stackoverflow.com/questions/48553029/how-do-i-overwrite-a-task-in-gradle-kotlin-dsl
-// https://github.com/gradle/kotlin-dsl/issues/705
-// https://github.com/gradle/kotlin-dsl/issues/716
-val fatJar = task("fatJar", type = Jar::class) {
-    baseName = "${project.name}-fat"
-    // manifest Main-Class attribute is optional.
-    // (Used only to provide default main class for executable jar)
+    from(configurations.get("runtimeClasspath").map { if (it.isDirectory) it else zipTree(it) })
+    // these "exclude" lines remove some unnecessary duplicate files in the output JAR.
+    excludes.apply {
+        add("META-INF/INDEX.LIST")
+        add("META-INF/*.SF")
+        add("META-INF/*.DSA")
+        add("META-INF/*.RSA")
+    }
+    dependencies {
+        exclude("META-INF/INDEX.LIST", "META-INF/maven/**")
+    }
+    // setting the manifest makes the JAR runnable.
     manifest {
         attributes["Main-Class"] = "io.github.thanosfisherman.fractaloid.MainKt"
     }
-    from(configurations.runtime.map { if (it.isDirectory) it else zipTree(it) })
-    with(tasks["jar"] as CopySpec)
-}
 
-tasks {
-    "build" {
-        dependsOn(fatJar)
+    // this last step may help on some OSes that need extra instruction to make runnable JARs.
+    doLast {
+        file(archiveFile).setExecutable(true, false)
     }
 }
