@@ -53,7 +53,7 @@ tasks.getByName<Jar>("jar") {
     }
     // setting the manifest makes the JAR runnable.
     manifest {
-        attributes["Main-Class"] = "io.github.thanosfisherman.fractaloid.MainKt"
+        attributes["Main-Class"] = "io.github.thanosfisherman.fractaloid.Main"
     }
 
     // this last step may help on some OSes that need extra instruction to make runnable JARs.
